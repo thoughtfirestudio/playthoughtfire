@@ -27,20 +27,20 @@ body {
   display: inline-block;
   font-size: 200px;
   font-weight: 700;
-  color: #f5e8d0;
   line-height: 1;
 }
 .letter {
   display: inline-block;
   will-change: transform;
+  text-shadow: 0 0 0.05em rgba(255, 220, 180, 0.15);
 }
 .letter.pop {
-  animation: pop-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 @keyframes pop-in {
-  0%   { transform: scale(0) translateY(0.12em); opacity: 0; }
-  55%  { transform: scale(1.18) translateY(-0.02em); opacity: 1; }
-  100% { transform: scale(1) translateY(0); opacity: 1; }
+  0%   { transform: scale(0) translateY(0.12em); opacity: 0; filter: brightness(3); }
+  50%  { transform: scale(1.18) translateY(-0.02em); opacity: 1; filter: brightness(1.2); }
+  100% { transform: scale(1) translateY(0); opacity: 1; filter: brightness(1); }
 }
 .letter.space {
   width: 0.35em;
@@ -58,6 +58,15 @@ body {
   0%, 100% { opacity: 0.3; }
   50%      { opacity: 1; }
 }
+#pulse {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(255, 248, 238, 0.06);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+#pulse.active { opacity: 1; }
 #hint {
   position: fixed;
   bottom: 2rem;
@@ -77,8 +86,43 @@ body {
 <div id="stage">
   <div id="display"><span id="letters"></span><span id="cursor"></span></div>
 </div>
+<div id="pulse"></div>
 <div id="hint">type anything &mdash; esc to clear</div>
 <script>
+// ---- audio ----
+const PENTA = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00];
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) {}
+  }
+}
+function playNote(index) {
+  if (!audioCtx) return;
+  try {
+    const freq = PENTA[index % PENTA.length];
+    const now = audioCtx.currentTime;
+    const osc = new OscillatorNode(audioCtx, { type: 'sine', frequency: freq });
+    const gain = new GainNode(audioCtx);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRamp(0.10, now + 0.006);
+    gain.gain.linearRamp(0.08, now + 0.100);
+    gain.gain.linearRamp(0, now + 0.250);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.300);
+  } catch (e) {}
+}
+
+// ---- colors ----
+const WARM_HUES = [0, 20, 35, 48, 15, 30, 42, 10, 25, 40];
+function letterColor(index) {
+  return `hsl(${WARM_HUES[index % WARM_HUES.length]}, 65%, 60%)`;
+}
+
+// ---- display ----
 const MAX_PX = 200;
 const MIN_PX = 16;
 const STAGE_W_FRAC = 0.82;
@@ -87,7 +131,9 @@ const stage = document.getElementById('stage');
 const display = document.getElementById('display');
 const letters = document.getElementById('letters');
 const hint = document.getElementById('hint');
+const pulse = document.getElementById('pulse');
 let empty = true;
+let charCount = 0;
 
 function fit() {
   if (empty) { display.style.fontSize = MAX_PX + 'px'; return; }
@@ -95,13 +141,14 @@ function fit() {
   let size = MAX_PX;
   display.style.fontSize = size + 'px';
   const textW = display.scrollWidth;
-  if (textW > maxW) {
+  if (textW > maxW && textW > 0) {
     size = Math.max(MIN_PX, Math.floor(size * maxW / textW * 0.95));
     display.style.fontSize = size + 'px';
   }
 }
 
 function addChar(ch) {
+  initAudio();
   if (empty) { hint.classList.add('hidden'); empty = false; }
   const s = document.createElement('span');
   s.classList.add('letter');
@@ -110,10 +157,15 @@ function addChar(ch) {
     s.innerHTML = '&nbsp;';
   } else {
     s.textContent = ch;
+    s.style.color = letterColor(charCount);
+    playNote(charCount);
+    pulse.classList.add('active');
+    setTimeout(() => pulse.classList.remove('active'), 30);
   }
   letters.appendChild(s);
   void s.offsetWidth;
   s.classList.add('pop');
+  charCount++;
   fit();
 }
 
@@ -121,6 +173,7 @@ function removeLast() {
   const els = letters.children;
   if (els.length === 0) return false;
   letters.removeChild(els[els.length - 1]);
+  charCount = Math.max(0, charCount - 1);
   if (els.length === 0) { empty = true; hint.classList.remove('hidden'); }
   fit();
   return true;
@@ -128,6 +181,7 @@ function removeLast() {
 
 function clearAll() {
   letters.innerHTML = '';
+  charCount = 0;
   empty = true;
   hint.classList.remove('hidden');
   display.style.fontSize = MAX_PX + 'px';
@@ -136,7 +190,6 @@ function clearAll() {
 document.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   const k = e.key;
-
   if (k === 'Backspace') { removeLast(); e.preventDefault(); return; }
   if (k === 'Escape')    { clearAll(); e.preventDefault(); return; }
   if (k === 'Enter' || k === 'Tab') { e.preventDefault(); return; }
