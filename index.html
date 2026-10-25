@@ -258,6 +258,17 @@ function playDrum(t) {
   const p = m[t];
   if (p) synthBuffer(p.f, p.v, p.d, t==='h'?'triangle':'sine', 'drum '+{k:'kick',h:'hat',s:'snare'}[t]);
 }
+function playTypingAccent(ch) {
+  const u = ch.toUpperCase();
+  if ('AEIOU'.includes(u))
+    synthBuffer(880, 0.08, 0.10, 'sine', 'chime vowel');
+  else if (u >= 'A' && u <= 'Z')
+    synthBuffer(220, 0.12, 0.06, 'triangle', 'snare consonant');
+  else if (u >= '0' && u <= '9')
+    synthBuffer(70, 0.18, 0.08, 'sine', 'kick number');
+  else
+    synthBuffer(1200, 0.04, 0.03, 'triangle', 'hat other');
+}
 
 // ---- display ----
 const MAX_PX = 200;
@@ -342,10 +353,11 @@ function addLetter(ch) {
     setTimeout(() => s.classList.remove('pop'), 350);
   }
   playNote(charCount);
+  playTypingAccent(ch);
   pulse.classList.add('active');
   setTimeout(() => pulse.classList.remove('active'), 30);
   charCount++;
-  logAction('🔊', 'play', `${PENTA[(charCount-1) % PENTA.length].toFixed(0)}Hz (${ch})`, '#7dd4d0');
+  logAction('🔊', ch, {A:'vowel',E:'vowel',I:'vowel',O:'vowel',U:'vowel'}[ch.toUpperCase()]||'cons','#7dd4d0');
   fitWords();
 }
 
