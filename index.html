@@ -16,18 +16,23 @@ body {
 }
 #stage {
   width: 90vw;
-  height: 85vh;
+  min-height: 85vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 0 1em;
   overflow: hidden;
 }
 #display {
-  white-space: nowrap;
-  display: inline-block;
-  font-size: 200px;
+  display: block;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-all;
+  font-size: clamp(52px, 11vw, 160px);
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.15;
+  text-align: center;
 }
 .letter {
   display: inline-block;
@@ -80,6 +85,20 @@ body {
   pointer-events: none;
 }
 #hint.hidden { opacity: 0; }
+#palette-tag {
+  position: fixed;
+  bottom: 3.5rem;
+  left: 0; right: 0;
+  text-align: center;
+  color: rgba(245, 232, 208, 0.15);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+#palette-tag.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -87,8 +106,59 @@ body {
   <div id="display"><span id="letters"></span><span id="cursor"></span></div>
 </div>
 <div id="pulse"></div>
-<div id="hint">type anything &mdash; esc to clear</div>
+<div id="hint">type &mdash; esc to clear &mdash; tab for palette</div>
+<span id="palette-tag"></span>
 <script>
+// ---- palettes (coolors.co inspired) ----
+const PALETTES = [
+  { name: 'ember', colors: ['#e85d3a','#d4a34a','#c4a882','#f0d5b0','#8b6b4d'] },
+  { name: 'ocean', colors: ['#1a7a9e','#4ab8c4','#7dd4d0','#b8dfe6','#e2f4f0'] },
+  { name: 'forest', colors: ['#2d5a3a','#5a8a4a','#8aaa6a','#a8c88a','#c8e0b0'] },
+  { name: 'sunset', colors: ['#c45a6a','#e88a5a','#f0b88a','#b87aaa','#8a5a9a'] },
+  { name: 'pastel', colors: ['#f0c4c4','#d4e0f0','#c4e0d0','#e8d4e0','#e0e0c4'] },
+  { name: 'nordic', colors: ['#e8d0b8','#c4b8a0','#a09888','#d4c8b0','#f0e4d0'] },
+  { name: 'tropical', colors: ['#e85a3a','#f0c040','#40b86a','#c05aaa','#40a0d0'] },
+  { name: 'desert', colors: ['#c0805a','#a08858','#d4b080','#708058','#e0c8a0'] },
+  { name: 'jewel', colors: ['#c04040','#4080c0','#40a060','#c0a040','#8040c0'] },
+  { name: 'candy', colors: ['#f080a0','#80d080','#80c0f0','#f0d080','#d080f0'] },
+  { name: 'midnight', colors: ['#2a4a6a','#4a6a8a','#6a8aaa','#8aaaaa','#aaaac8'] },
+  { name: 'vintage', colors: ['#c8a878','#a88868','#a0b8a0','#c8b898','#8a7a5a'] },
+  { name: 'neon', colors: ['#ff4080','#40ff80','#4080ff','#ff8040','#80ff40'] },
+  { name: 'matcha', colors: ['#6a9a4a','#9aba6a','#bada8a','#8a9a5a','#aaba7a'] },
+  { name: 'blush', colors: ['#e8a0b0','#d080a0','#c0688a','#f0c0d0','#e080b0'] },
+  { name: 'saffron', colors: ['#d4a040','#c08030','#b06040','#e8c080','#a08850'] },
+  { name: 'glacier', colors: ['#a0c8e8','#80b8d8','#60a8c8','#c0e0f0','#b0d0e8'] },
+  { name: 'moss', colors: ['#5a7a4a','#7a9a6a','#9aba8a','#6a8a5a','#8aaa7a'] },
+  { name: 'coral', colors: ['#e08060','#f0a080','#d0a080','#b0c0c0','#80b8a0'] },
+  { name: 'plum', colors: ['#6a3a7a','#8a5a9a','#a07aaa','#b89aba','#6a5a8a'] },
+];
+let curPalette = 0;
+
+function currentColor(pos) {
+  const p = PALETTES[curPalette];
+  return p.colors[pos % p.colors.length];
+}
+
+function cyclePalette() {
+  curPalette = (curPalette + 1) % PALETTES.length;
+  const els = letters.children;
+  let ci = 0;
+  for (let i = 0; i < els.length; i++) {
+    if (els[i].classList.contains('space')) continue;
+    els[i].style.color = currentColor(ci);
+    ci++;
+  }
+  showPaletteTag();
+}
+
+function showPaletteTag() {
+  const tag = document.getElementById('palette-tag');
+  tag.textContent = PALETTES[curPalette].name;
+  tag.classList.add('show');
+  clearTimeout(tag._t);
+  tag._t = setTimeout(() => tag.classList.remove('show'), 1200);
+}
+
 // ---- audio ----
 const PENTA = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00];
 let audioCtx = null;
@@ -116,17 +186,7 @@ function playNote(index) {
   } catch (e) {}
 }
 
-// ---- colors ----
-const WARM_HUES = [0, 20, 35, 48, 15, 30, 42, 10, 25, 40];
-function letterColor(index) {
-  return `hsl(${WARM_HUES[index % WARM_HUES.length]}, 65%, 60%)`;
-}
-
 // ---- display ----
-const MAX_PX = 200;
-const MIN_PX = 16;
-const STAGE_W_FRAC = 0.82;
-
 const stage = document.getElementById('stage');
 const display = document.getElementById('display');
 const letters = document.getElementById('letters');
@@ -134,18 +194,6 @@ const hint = document.getElementById('hint');
 const pulse = document.getElementById('pulse');
 let empty = true;
 let charCount = 0;
-
-function fit() {
-  if (empty) { display.style.fontSize = MAX_PX + 'px'; return; }
-  const maxW = stage.clientWidth * STAGE_W_FRAC;
-  let size = MAX_PX;
-  display.style.fontSize = size + 'px';
-  const textW = display.scrollWidth;
-  if (textW > maxW && textW > 0) {
-    size = Math.max(MIN_PX, Math.floor(size * maxW / textW * 0.95));
-    display.style.fontSize = size + 'px';
-  }
-}
 
 function addChar(ch) {
   initAudio();
@@ -157,7 +205,7 @@ function addChar(ch) {
     s.innerHTML = '&nbsp;';
   } else {
     s.textContent = ch;
-    s.style.color = letterColor(charCount);
+    s.style.color = currentColor(charCount);
     playNote(charCount);
     pulse.classList.add('active');
     setTimeout(() => pulse.classList.remove('active'), 30);
@@ -166,7 +214,6 @@ function addChar(ch) {
   void s.offsetWidth;
   s.classList.add('pop');
   charCount++;
-  fit();
 }
 
 function removeLast() {
@@ -175,7 +222,6 @@ function removeLast() {
   letters.removeChild(els[els.length - 1]);
   charCount = Math.max(0, charCount - 1);
   if (els.length === 0) { empty = true; hint.classList.remove('hidden'); }
-  fit();
   return true;
 }
 
@@ -184,7 +230,6 @@ function clearAll() {
   charCount = 0;
   empty = true;
   hint.classList.remove('hidden');
-  display.style.fontSize = MAX_PX + 'px';
 }
 
 document.addEventListener('keydown', (e) => {
@@ -192,7 +237,8 @@ document.addEventListener('keydown', (e) => {
   const k = e.key;
   if (k === 'Backspace') { removeLast(); e.preventDefault(); return; }
   if (k === 'Escape')    { clearAll(); e.preventDefault(); return; }
-  if (k === 'Enter' || k === 'Tab') { e.preventDefault(); return; }
+  if (k === 'Tab')       { cyclePalette(); e.preventDefault(); return; }
+  if (k === 'Enter')     { e.preventDefault(); return; }
   if (k === ' ')         { addChar(' '); e.preventDefault(); return; }
   if (k.length === 1)    { addChar(k.toUpperCase()); e.preventDefault(); }
 });
