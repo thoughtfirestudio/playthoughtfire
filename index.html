@@ -212,26 +212,51 @@ const PENTA = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 7
 let audioCtx = null;
 function initAudio() {
   if (!audioCtx) {
-    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-    catch (e) {}
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AC();
+    } catch (e) { console.log('audioCtx fail:', e); }
   }
 }
-function playNote(index) {
+
+function synth(freq, vol, dur, wave) {
   if (!audioCtx) return;
   try {
-    const freq = PENTA[index % PENTA.length];
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'sine';
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch(e) {}
+  try {
+    const t = audioCtx.currentTime;
+    let osc, gain;
+    try { // factory method
+      osc = audioCtx.createOscillator();
+      gain = audioCtx.createGain();
+    } catch(e) { // constructor fallback
+      osc = new (window.OscillatorNode || window.OscillatorNode)(audioCtx);
+      gain = new (window.GainNode || window.GainNode)(audioCtx);
+    }
+    osc.type = wave || 0;
     osc.frequency.value = freq;
     gain.gain.value = 0;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRamp(vol, t + 0.004);
+    gain.gain.linearRamp(0, t + dur);
     osc.connect(gain);
     gain.connect(audioCtx.destination);
-    osc.start(0);
-    setTimeout(() => { gain.gain.value = 0.10; }, 5);
-    setTimeout(() => { gain.gain.value = 0.07; }, 80);
-    setTimeout(() => { gain.gain.value = 0; osc.stop(0); }, 250);
-  } catch (e) { console.log('audio:', e); }
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  } catch(e) { console.log('synth:', e); }
+}
+
+function playNote(index) {
+  const freq = PENTA[index % PENTA.length];
+  synth(freq, 0.12, 0.22, 0);
+}
+function playDrum(t) {
+  const freq = t==='k'?70:t==='h'?1200:220;
+  const vol = t==='k'?0.28:t==='h'?0.07:0.14;
+  const dur = t==='h'?0.04:0.1;
+  const wave = t==='k'?0:3;
+  synth(freq, vol, dur, wave);
 }
 
 // ---- display ----
@@ -387,6 +412,20 @@ function updateBtnColor() {
 }
 
 let partyTimer = null;
+// ---- party beat ----
+let beatStep = 0;
+const BEAT_PATTERN = ['k','.','h','.','k','.','h','s','.','.','h','.','k','.','h','.'];
+function stopBeat() { beatStep = 0; }
+function startBeat() {
+  beatStep = 0;
+  const ms = Math.round(60000 / 130 / 4);
+  if (beatTimer) clearInterval(beatTimer);
+  beatTimer = setInterval(() => {
+    const d = BEAT_PATTERN[beatStep % BEAT_PATTERN.length];
+    if (d !== '.') playDrum(d);
+    beatStep++;
+  }, ms);
+}
 function staggerLetters() {
   let ci = 0;
   for (const el of document.querySelectorAll('.word .letter')) {
@@ -407,12 +446,15 @@ function toggleParty() {
     btn.classList.remove('on');
     display.classList.remove('party');
     clearStagger();
+    stopBeat();
   } else {
+    initAudio();
     cyclePalette();
     partyTimer = setInterval(cyclePalette, 700);
     btn.classList.add('on');
     display.classList.add('party');
     staggerLetters();
+    startBeat();
   }
 }
 
