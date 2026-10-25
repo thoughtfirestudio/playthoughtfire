@@ -225,7 +225,7 @@ function synth(freq, vol, dur, wave) {
   try {
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.type = wave || 0;
+    osc.type = wave || 'sine';
     osc.frequency.value = freq;
     gain.gain.value = vol;
     osc.connect(gain);
@@ -236,13 +236,13 @@ function synth(freq, vol, dur, wave) {
 
 function playNote(index) {
   const freq = PENTA[index % PENTA.length];
-  synth(freq, 0.12, 0.22, 0);
+  synth(freq, 0.12, 0.22, 'sine');
 }
 function playDrum(t) {
   const freq = t==='k'?70:t==='h'?1200:220;
   const vol = t==='k'?0.28:t==='h'?0.07:0.14;
   const dur = t==='h'?0.04:0.1;
-  const wave = t==='k'?0:3;
+  const wave = t==='k'?'sine':'triangle';
   synth(freq, vol, dur, wave);
 }
 
