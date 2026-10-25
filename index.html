@@ -399,10 +399,15 @@ function updateBtnColor() {
 }
 
 let partyTimer = null;
+let beatTimer = null;
 // ---- party beat ----
 let beatStep = 0;
 const BEAT_PATTERN = ['k','.','h','.','k','.','h','s','.','.','h','.','k','.','h','.'];
-function stopBeat() { beatStep = 0; }
+function stopBeat() {
+  if (beatTimer) clearInterval(beatTimer);
+  beatTimer = null;
+  beatStep = 0;
+}
 function startBeat() {
   beatStep = 0;
   const ms = Math.round(60000 / 130 / 4);
