@@ -201,7 +201,7 @@ const PALETTES = [
   { name: 'coral', colors: ['#e08060','#f0a080','#d0a080','#b0c0c0','#80b8a0'] },
   { name: 'plum', colors: ['#6a3a7a','#8a5a9a','#a07aaa','#b89aba','#6a5a8a'] },
 ];
-let curPalette = 0;
+let curPalette = 5;
 function currentColor(pos) {
   const p = PALETTES[curPalette];
   return p.colors[pos % p.colors.length];
@@ -220,18 +220,18 @@ function playNote(index) {
   if (!audioCtx) return;
   try {
     const freq = PENTA[index % PENTA.length];
-    const now = audioCtx.currentTime;
-    const osc = new OscillatorNode(audioCtx, { type: 'sine', frequency: freq });
-    const gain = new GainNode(audioCtx);
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRamp(0.10, now + 0.006);
-    gain.gain.linearRamp(0.08, now + 0.100);
-    gain.gain.linearRamp(0, now + 0.250);
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.value = 0;
     osc.connect(gain);
     gain.connect(audioCtx.destination);
-    osc.start(now);
-    osc.stop(now + 0.300);
-  } catch (e) {}
+    osc.start(0);
+    setTimeout(() => { gain.gain.value = 0.10; }, 5);
+    setTimeout(() => { gain.gain.value = 0.07; }, 80);
+    setTimeout(() => { gain.gain.value = 0; osc.stop(0); }, 250);
+  } catch (e) { console.log('audio:', e); }
 }
 
 // ---- display ----
