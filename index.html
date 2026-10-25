@@ -187,10 +187,31 @@ body {
 }
 #emoji-btn:hover  { transform: scale(1.18); }
 #emoji-btn:active { transform: scale(0.9);  }
-#emoji-btn.on {
-  background: radial-gradient(circle at 35% 35%, rgba(100,200,255,0.45), rgba(100,200,255,0.05));
-  box-shadow: 0 0 0.6rem rgba(100,200,255,0.25);
+#emoji-picker {
+  position: fixed;
+  bottom: 4.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.6rem;
+  background: rgba(15,14,23,0.88);
+  border-radius: 1rem;
+  max-height: 12rem;
+  overflow-y: auto;
+  z-index: 10;
 }
+.emoji-opt {
+  font-size: 1.6rem;
+  cursor: pointer;
+  padding: 0.2rem 0.3rem;
+  border-radius: 0.4rem;
+  transition: background 0.15s ease, transform 0.1s ease;
+  line-height: 1;
+}
+.emoji-opt:hover { background: rgba(245,232,208,0.15); transform: scale(1.3); }
+.emoji-opt:active { transform: scale(0.9); }
 </style>
 </head>
 <body>
@@ -203,7 +224,8 @@ body {
 <span id="palette-tag"></span>
 <button id="clear-btn" aria-label="clear"></button>
 <button id="party-btn" aria-label="party mode"></button>
-<button id="emoji-btn" aria-label="emoji mode">😊</button>
+<button id="emoji-btn" aria-label="emoji picker">😊</button>
+<div id="emoji-picker"></div>
 <script>
 // ---- palettes ----
 const PALETTES = [
@@ -310,11 +332,7 @@ const pulse = document.getElementById('pulse');
 let empty = true;
 let charCount = 0;
 let curWord = null;
-let emojiMode = false;
-const EMOJIS = {
-  alpha: ['🐶','🐱','🐼','🐨','🐸','🦊','🐰','🐻','🐧','🐔','🌸','🌺','⭐','🌈','🎈','🍎','🍕','🍦','🍩','🎁','🎀','🎯','🦋','🐝','🐞'],
-  num: ['0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣'],
-};
+const EMOJI_SET = ['🐶','🐱','🐼','🐨','🐸','🦊','🐰','🐻','🐧','🐔','🌸','🌺','⭐','🌈','🎈','🍎','🍕','🍩','🍦','🍰','🎁','🎀','🎯','🦋','🐝','🐞','👋','🎵','💫','✨','🔥'];
 
 // ---- colorful logger (for the kids) ----
 function log(msg, color) {
@@ -375,16 +393,8 @@ function addLetter(ch) {
   ensureWord();
   const s = document.createElement('span');
   s.classList.add('letter');
-  if (emojiMode && ch >= ' ') {
-    const isNum = ch >= '0' && ch <= '9';
-    const pool = isNum ? EMOJIS.num : EMOJIS.alpha;
-    s.textContent = pool[charCount % pool.length];
-    s.style.color = 'inherit';
-    s.dataset.emoji = '1';
-  } else {
-    s.textContent = ch;
-    s.style.color = currentColor(charCount);
-  }
+  s.textContent = ch;
+  s.style.color = currentColor(charCount);
   curWord.appendChild(s);
   void s.offsetWidth;
   s.classList.add('pop');
@@ -535,11 +545,42 @@ function toggleParty() {
 }
 
 function toggleEmoji() {
-  emojiMode = !emojiMode;
-  const btn = document.getElementById('emoji-btn');
-  btn.textContent = emojiMode ? '🔤' : '😊';
-  btn.classList.toggle('on');
-  logAction('😊', 'emoji mode', emojiMode ? 'on' : 'off', '#f0c040');
+  const picker = document.getElementById('emoji-picker');
+  const open = picker.style.display === 'flex';
+  picker.style.display = open ? 'none' : 'flex';
+  if (!open) buildEmojiPicker();
+}
+function buildEmojiPicker() {
+  const picker = document.getElementById('emoji-picker');
+  if (picker.dataset.built) return;
+  picker.dataset.built = '1';
+  EMOJI_SET.forEach(e => {
+    const span = document.createElement('span');
+    span.textContent = e;
+    span.classList.add('emoji-opt');
+    span.addEventListener('click', () => { addEmoji(e); toggleEmoji(); });
+    picker.appendChild(span);
+  });
+}
+function addEmoji(emoji) {
+  initAudio();
+  if (empty) { hint.classList.add('hidden'); empty = false; }
+  ensureWord();
+  const s = document.createElement('span');
+  s.classList.add('letter');
+  s.textContent = emoji;
+  s.style.color = 'inherit';
+  curWord.appendChild(s);
+  void s.offsetWidth;
+  s.classList.add('pop');
+  if (partyTimer) { s.style.animationDelay = `${(charCount % 9) * -0.09}s`; setTimeout(() => s.classList.remove('pop'), 350); }
+  playNote(charCount);
+  playTypingAccent((charCount % 26 + 65).toString());
+  pulse.classList.add('active');
+  setTimeout(() => pulse.classList.remove('active'), 30);
+  charCount++;
+  logAction('😊', 'emoji', emoji, '#f0c040');
+  fitWords();
 }
 
 document.addEventListener('keydown', (e) => {
