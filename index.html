@@ -124,6 +124,32 @@ body {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-4px); }
 }
+#party-btn {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  animation: orb-float 4s ease-in-out infinite;
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+  background: radial-gradient(circle at 35% 35%, rgba(160,90,210,0.45), rgba(160,90,210,0.05));
+  box-shadow: 0 0 0.6rem rgba(160,90,210,0.2);
+}
+#party-btn:hover  { transform: scale(1.18); }
+#party-btn:active { transform: scale(0.9);  }
+#party-btn.on {
+  animation: hue-spin 2s linear infinite, orb-float 4s ease-in-out infinite;
+  background: radial-gradient(circle at 35% 35%, rgba(255,120,180,0.55), rgba(255,120,180,0.08));
+  box-shadow: 0 0 0.8rem rgba(255,120,180,0.35);
+}
+@keyframes hue-spin {
+  from { filter: hue-rotate(0deg); }
+  to   { filter: hue-rotate(360deg); }
+}
 </style>
 </head>
 <body>
@@ -131,9 +157,10 @@ body {
   <div id="display"><span id="letters"></span><span id="cursor"></span></div>
 </div>
 <div id="pulse"></div>
-<div id="hint">type &mdash; esc to clear &mdash; tab for palette</div>
+<div id="hint">type &mdash; esc to clear &mdash; tab for palette &mdash; click the orbs</div>
 <span id="palette-tag"></span>
 <button id="clear-btn" aria-label="clear"></button>
+<button id="party-btn" aria-label="party mode"></button>
 <script>
 // ---- palettes ----
 const PALETTES = [
@@ -331,6 +358,20 @@ function updateBtnColor() {
   btn.style.boxShadow = `0 0 0.8rem ${hexToRgba(c,0.25)}`;
 }
 
+let partyTimer = null;
+function toggleParty() {
+  const btn = document.getElementById('party-btn');
+  if (partyTimer) {
+    clearInterval(partyTimer);
+    partyTimer = null;
+    btn.classList.remove('on');
+  } else {
+    cyclePalette();
+    partyTimer = setInterval(cyclePalette, 2200);
+    btn.classList.add('on');
+  }
+}
+
 document.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   const k = e.key;
@@ -344,6 +385,7 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('mousedown', () => document.body.focus());
 document.getElementById('clear-btn').addEventListener('click', clearAll);
+document.getElementById('party-btn').addEventListener('click', toggleParty);
 updateBtnColor();
 document.body.focus();
 document.body.tabIndex = 0;
