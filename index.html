@@ -261,13 +261,13 @@ function playDrum(t) {
 function playTypingAccent(ch) {
   const u = ch.toUpperCase();
   if ('AEIOU'.includes(u))
-    synthBuffer(880, 0.08, 0.10, 'sine', 'chime vowel');
+    synthBuffer(1200, 0.22, 0.08, 'triangle', 'chime vowel');
   else if (u >= 'A' && u <= 'Z')
-    synthBuffer(220, 0.12, 0.06, 'triangle', 'snare consonant');
+    synthBuffer(160, 0.26, 0.06, 'square', 'snare consonant');
   else if (u >= '0' && u <= '9')
-    synthBuffer(70, 0.18, 0.08, 'sine', 'kick number');
+    synthBuffer(55, 0.32, 0.12, 'sine', 'kick number');
   else
-    synthBuffer(1200, 0.04, 0.03, 'triangle', 'hat other');
+    synthBuffer(900, 0.12, 0.03, 'triangle', 'hat other');
 }
 
 // ---- display ----
