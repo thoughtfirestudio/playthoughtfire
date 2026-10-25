@@ -165,6 +165,32 @@ body {
   from { filter: hue-rotate(0deg); }
   to   { filter: hue-rotate(360deg); }
 }
+#emoji-btn {
+  position: fixed;
+  bottom: 1.5rem;
+  left: calc(50% - 1.25rem);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: orb-float 4s ease-in-out infinite;
+  background: radial-gradient(circle at 35% 35%, rgba(255,200,60,0.45), rgba(255,200,60,0.05));
+  box-shadow: 0 0 0.6rem rgba(255,200,60,0.2);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+#emoji-btn:hover  { transform: scale(1.18); }
+#emoji-btn:active { transform: scale(0.9);  }
+#emoji-btn.on {
+  background: radial-gradient(circle at 35% 35%, rgba(100,200,255,0.45), rgba(100,200,255,0.05));
+  box-shadow: 0 0 0.6rem rgba(100,200,255,0.25);
+}
 </style>
 </head>
 <body>
@@ -177,6 +203,7 @@ body {
 <span id="palette-tag"></span>
 <button id="clear-btn" aria-label="clear"></button>
 <button id="party-btn" aria-label="party mode"></button>
+<button id="emoji-btn" aria-label="emoji mode">😊</button>
 <script>
 // ---- palettes ----
 const PALETTES = [
@@ -283,6 +310,11 @@ const pulse = document.getElementById('pulse');
 let empty = true;
 let charCount = 0;
 let curWord = null;
+let emojiMode = false;
+const EMOJIS = {
+  alpha: ['🐶','🐱','🐼','🐨','🐸','🦊','🐰','🐻','🐧','🐔','🌸','🌺','⭐','🌈','🎈','🍎','🍕','🍦','🍩','🎁','🎀','🎯','🦋','🐝','🐞'],
+  num: ['0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣'],
+};
 
 // ---- colorful logger (for the kids) ----
 function log(msg, color) {
@@ -343,8 +375,16 @@ function addLetter(ch) {
   ensureWord();
   const s = document.createElement('span');
   s.classList.add('letter');
-  s.textContent = ch;
-  s.style.color = currentColor(charCount);
+  if (emojiMode && ch >= ' ') {
+    const isNum = ch >= '0' && ch <= '9';
+    const pool = isNum ? EMOJIS.num : EMOJIS.alpha;
+    s.textContent = pool[charCount % pool.length];
+    s.style.color = 'inherit';
+    s.dataset.emoji = '1';
+  } else {
+    s.textContent = ch;
+    s.style.color = currentColor(charCount);
+  }
   curWord.appendChild(s);
   void s.offsetWidth;
   s.classList.add('pop');
@@ -494,6 +534,14 @@ function toggleParty() {
   }
 }
 
+function toggleEmoji() {
+  emojiMode = !emojiMode;
+  const btn = document.getElementById('emoji-btn');
+  btn.textContent = emojiMode ? '🔤' : '😊';
+  btn.classList.toggle('on');
+  logAction('😊', 'emoji mode', emojiMode ? 'on' : 'off', '#f0c040');
+}
+
 document.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   const k = e.key;
@@ -508,6 +556,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('mousedown', () => document.body.focus());
 document.getElementById('clear-btn').addEventListener('click', clearAll);
 document.getElementById('party-btn').addEventListener('click', toggleParty);
+document.getElementById('emoji-btn').addEventListener('click', toggleEmoji);
 updateBtnColor();
 document.body.focus();
 document.body.tabIndex = 0;
