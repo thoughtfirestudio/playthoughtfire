@@ -221,29 +221,16 @@ function initAudio() {
 
 function synth(freq, vol, dur, wave) {
   if (!audioCtx) return;
+  try { if (audioCtx.state === 'suspended') audioCtx.resume(); } catch(e) {}
   try {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-  } catch(e) {}
-  try {
-    const t = audioCtx.currentTime;
-    let osc, gain;
-    try { // factory method
-      osc = audioCtx.createOscillator();
-      gain = audioCtx.createGain();
-    } catch(e) { // constructor fallback
-      osc = new (window.OscillatorNode || window.OscillatorNode)(audioCtx);
-      gain = new (window.GainNode || window.GainNode)(audioCtx);
-    }
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
     osc.type = wave || 0;
     osc.frequency.value = freq;
-    gain.gain.value = 0;
-    gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRamp(vol, t + 0.004);
-    gain.gain.linearRamp(0, t + dur);
+    gain.gain.value = vol;
     osc.connect(gain);
     gain.connect(audioCtx.destination);
-    osc.start(t);
-    osc.stop(t + dur + 0.02);
+    setTimeout(() => { gain.gain.value = 0; }, Math.round(dur * 1000));
   } catch(e) { console.log('synth:', e); }
 }
 
