@@ -183,20 +183,35 @@ const hint = document.getElementById('hint');
 const pulse = document.getElementById('pulse');
 let empty = true;
 let charCount = 0;
+let curWord = null;
+
+function lastWord() {
+  for (let i = letters.children.length - 1; i >= 0; i--) {
+    const e = letters.children[i];
+    if (e.classList.contains('space')) return null;
+    if (e.classList.contains('word')) return e;
+  }
+  return null;
+}
+
+function ensureWord() {
+  if (curWord && curWord.parentNode === letters) return;
+  curWord = document.createElement('span');
+  curWord.classList.add('word');
+  letters.appendChild(curWord);
+}
 
 function fitWords() {
-  if (empty || !letters.children.length) {
-    display.style.fontSize = MAX_PX + 'px';
-    return;
-  }
+  if (empty || !letters.children.length) { display.style.fontSize = MAX_PX + 'px'; return; }
   const maxW = stage.clientWidth * STAGE_FRAC;
   let size = MAX_PX;
   display.style.fontSize = size + 'px';
   let maxWordW = 0;
-  const words = letters.querySelectorAll(':scope > .word');
-  for (let i = 0; i < words.length; i++) {
-    const w = words[i].offsetWidth;
-    if (w > maxWordW) maxWordW = w;
+  for (const el of letters.children) {
+    if (el.classList.contains('word')) {
+      const w = el.offsetWidth;
+      if (w > maxWordW) maxWordW = w;
+    }
   }
   if (maxWordW > maxW && maxWordW > 0) {
     size = Math.max(MIN_PX, Math.floor(size * maxW / maxWordW * 0.97));
@@ -205,32 +220,15 @@ function fitWords() {
   display.style.fontSize = size + 'px';
 }
 
-function lastWord() {
-  const els = letters.children;
-  const len = els.length;
-  if (len > 0 && els[len - 1].classList.contains('space')) return null;
-  for (let i = len - 1; i >= 0; i--) {
-    const e = els[i];
-    if (e.classList.contains('word')) return e;
-    if (e.classList.contains('space')) return null;
-  }
-  return null;
-}
-
 function addLetter(ch) {
   initAudio();
   if (empty) { hint.classList.add('hidden'); empty = false; }
-  let word = lastWord();
-  if (!word) {
-    word = document.createElement('span');
-    word.classList.add('word');
-    letters.appendChild(word);
-  }
+  ensureWord();
   const s = document.createElement('span');
   s.classList.add('letter');
   s.textContent = ch;
   s.style.color = currentColor(charCount);
-  word.appendChild(s);
+  curWord.appendChild(s);
   void s.offsetWidth;
   s.classList.add('pop');
   playNote(charCount);
@@ -242,6 +240,7 @@ function addLetter(ch) {
 
 function addSpace() {
   if (empty) { hint.classList.add('hidden'); empty = false; }
+  curWord = null;
   const s = document.createElement('span');
   s.classList.add('letter', 'space');
   s.innerHTML = '&nbsp;';
@@ -265,7 +264,8 @@ function removeLast() {
       letters.removeChild(last);
     }
   }
-  if (els.length === 0) { empty = true; hint.classList.remove('hidden'); }
+  curWord = lastWord();
+  if (els.length === 0) { empty = true; hint.classList.remove('hidden'); curWord = null; }
   fitWords();
   return true;
 }
@@ -274,6 +274,7 @@ function clearAll() {
   letters.innerHTML = '';
   charCount = 0;
   empty = true;
+  curWord = null;
   hint.classList.remove('hidden');
   display.style.fontSize = MAX_PX + 'px';
 }
