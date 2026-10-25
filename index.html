@@ -57,6 +57,13 @@ body {
   display: inline-block;
   animation: none;
 }
+#display.party .letter:not(.space) {
+  animation: letter-breathe 0.7s ease-in-out infinite;
+}
+@keyframes letter-breathe {
+  0%, 100% { transform: scale(1) translateY(0); filter: brightness(1); }
+  50%      { transform: scale(1.08) translateY(-0.04em); filter: brightness(1.3); }
+}
 #cursor {
   display: inline-block;
   width: 0.06em;
@@ -78,6 +85,14 @@ body {
   transition: opacity 0.18s ease;
 }
 #pulse.active { opacity: 1; }
+#party-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+#party-flash.active { opacity: 1; }
 #hint {
   position: fixed;
   bottom: 2rem;
@@ -157,6 +172,7 @@ body {
   <div id="display"><span id="letters"></span><span id="cursor"></span></div>
 </div>
 <div id="pulse"></div>
+<div id="party-flash"></div>
 <div id="hint">type &mdash; esc to clear &mdash; tab for palette &mdash; click the orbs</div>
 <span id="palette-tag"></span>
 <button id="clear-btn" aria-label="clear"></button>
@@ -284,6 +300,10 @@ function addLetter(ch) {
   curWord.appendChild(s);
   void s.offsetWidth;
   s.classList.add('pop');
+  if (partyTimer) {
+    s.style.animationDelay = `${(charCount % 9) * -0.09}s`;
+    setTimeout(() => s.classList.remove('pop'), 350);
+  }
   playNote(charCount);
   pulse.classList.add('active');
   setTimeout(() => pulse.classList.remove('active'), 30);
@@ -339,6 +359,14 @@ function cyclePalette() {
     el.style.color = currentColor(ci);
     ci++;
   }
+  if (partyTimer) {
+    const c = PALETTES[curPalette].colors[0];
+    const flash = document.getElementById('party-flash');
+    flash.style.background = `radial-gradient(circle at 50% 50%, ${hexToRgba(c,0.15)}, transparent)`;
+    flash.classList.add('active');
+    clearTimeout(flash._t);
+    flash._t = setTimeout(() => flash.classList.remove('active'), 350);
+  }
   const tag = document.getElementById('palette-tag');
   tag.textContent = PALETTES[curPalette].name;
   tag.classList.add('show');
@@ -359,16 +387,32 @@ function updateBtnColor() {
 }
 
 let partyTimer = null;
+function staggerLetters() {
+  let ci = 0;
+  for (const el of document.querySelectorAll('.word .letter')) {
+    el.style.animationDelay = `${(ci % 9) * -0.09}s`;
+    ci++;
+  }
+}
+function clearStagger() {
+  for (const el of document.querySelectorAll('.word .letter')) {
+    el.style.animationDelay = '';
+  }
+}
 function toggleParty() {
   const btn = document.getElementById('party-btn');
   if (partyTimer) {
     clearInterval(partyTimer);
     partyTimer = null;
     btn.classList.remove('on');
+    display.classList.remove('party');
+    clearStagger();
   } else {
     cyclePalette();
-    partyTimer = setInterval(cyclePalette, 2200);
+    partyTimer = setInterval(cyclePalette, 700);
     btn.classList.add('on');
+    display.classList.add('party');
+    staggerLetters();
   }
 }
 
