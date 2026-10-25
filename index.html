@@ -21,18 +21,23 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0 1em;
+  padding: 0.5em;
   overflow: hidden;
 }
 #display {
   display: block;
   max-width: 100%;
   white-space: normal;
-  word-break: break-all;
-  font-size: clamp(52px, 11vw, 160px);
+  word-break: normal;
+  overflow-wrap: normal;
+  font-size: 200px;
   font-weight: 700;
   line-height: 1.15;
   text-align: center;
+}
+.word {
+  display: inline-block;
+  white-space: nowrap;
 }
 .letter {
   display: inline-block;
@@ -50,6 +55,7 @@ body {
 .letter.space {
   width: 0.35em;
   display: inline-block;
+  animation: none;
 }
 #cursor {
   display: inline-block;
@@ -109,7 +115,7 @@ body {
 <div id="hint">type &mdash; esc to clear &mdash; tab for palette</div>
 <span id="palette-tag"></span>
 <script>
-// ---- palettes (coolors.co inspired) ----
+// ---- palettes ----
 const PALETTES = [
   { name: 'ember', colors: ['#e85d3a','#d4a34a','#c4a882','#f0d5b0','#8b6b4d'] },
   { name: 'ocean', colors: ['#1a7a9e','#4ab8c4','#7dd4d0','#b8dfe6','#e2f4f0'] },
@@ -133,30 +139,9 @@ const PALETTES = [
   { name: 'plum', colors: ['#6a3a7a','#8a5a9a','#a07aaa','#b89aba','#6a5a8a'] },
 ];
 let curPalette = 0;
-
 function currentColor(pos) {
   const p = PALETTES[curPalette];
   return p.colors[pos % p.colors.length];
-}
-
-function cyclePalette() {
-  curPalette = (curPalette + 1) % PALETTES.length;
-  const els = letters.children;
-  let ci = 0;
-  for (let i = 0; i < els.length; i++) {
-    if (els[i].classList.contains('space')) continue;
-    els[i].style.color = currentColor(ci);
-    ci++;
-  }
-  showPaletteTag();
-}
-
-function showPaletteTag() {
-  const tag = document.getElementById('palette-tag');
-  tag.textContent = PALETTES[curPalette].name;
-  tag.classList.add('show');
-  clearTimeout(tag._t);
-  tag._t = setTimeout(() => tag.classList.remove('show'), 1200);
 }
 
 // ---- audio ----
@@ -187,6 +172,10 @@ function playNote(index) {
 }
 
 // ---- display ----
+const MAX_PX = 200;
+const MIN_PX = 16;
+const STAGE_FRAC = 0.85;
+
 const stage = document.getElementById('stage');
 const display = document.getElementById('display');
 const letters = document.getElementById('letters');
@@ -195,33 +184,87 @@ const pulse = document.getElementById('pulse');
 let empty = true;
 let charCount = 0;
 
-function addChar(ch) {
+function fitWords() {
+  if (empty || !letters.children.length) {
+    display.style.fontSize = MAX_PX + 'px';
+    return;
+  }
+  const maxW = stage.clientWidth * STAGE_FRAC;
+  let size = MAX_PX;
+  display.style.fontSize = size + 'px';
+  let maxWordW = 0;
+  const words = letters.querySelectorAll(':scope > .word');
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i].offsetWidth;
+    if (w > maxWordW) maxWordW = w;
+  }
+  if (maxWordW > maxW && maxWordW > 0) {
+    size = Math.max(MIN_PX, Math.floor(size * maxW / maxWordW * 0.97));
+  }
+  if (size > MAX_PX) size = MAX_PX;
+  display.style.fontSize = size + 'px';
+}
+
+function lastWord() {
+  const els = letters.children;
+  for (let i = els.length - 1; i >= 0; i--) {
+    const e = els[i];
+    if (e.classList.contains('word')) return e;
+    if (e.classList.contains('space')) continue;
+  }
+  return null;
+}
+
+function addLetter(ch) {
   initAudio();
   if (empty) { hint.classList.add('hidden'); empty = false; }
+  let word = lastWord();
+  if (!word) {
+    word = document.createElement('span');
+    word.classList.add('word');
+    letters.appendChild(word);
+  }
   const s = document.createElement('span');
   s.classList.add('letter');
-  if (ch === ' ') {
-    s.classList.add('space');
-    s.innerHTML = '&nbsp;';
-  } else {
-    s.textContent = ch;
-    s.style.color = currentColor(charCount);
-    playNote(charCount);
-    pulse.classList.add('active');
-    setTimeout(() => pulse.classList.remove('active'), 30);
-  }
-  letters.appendChild(s);
+  s.textContent = ch;
+  s.style.color = currentColor(charCount);
+  word.appendChild(s);
   void s.offsetWidth;
   s.classList.add('pop');
+  playNote(charCount);
+  pulse.classList.add('active');
+  setTimeout(() => pulse.classList.remove('active'), 30);
   charCount++;
+  fitWords();
+}
+
+function addSpace() {
+  if (empty) { hint.classList.add('hidden'); empty = false; }
+  const s = document.createElement('span');
+  s.classList.add('letter', 'space');
+  s.innerHTML = '&nbsp;';
+  letters.appendChild(s);
+  charCount++;
+  fitWords();
 }
 
 function removeLast() {
   const els = letters.children;
   if (els.length === 0) return false;
-  letters.removeChild(els[els.length - 1]);
   charCount = Math.max(0, charCount - 1);
+  const last = els[els.length - 1];
+  if (last.classList.contains('space')) {
+    letters.removeChild(last);
+  } else if (last.classList.contains('word')) {
+    const wl = last.children;
+    if (wl.length > 1) {
+      last.removeChild(wl[wl.length - 1]);
+    } else {
+      letters.removeChild(last);
+    }
+  }
   if (els.length === 0) { empty = true; hint.classList.remove('hidden'); }
+  fitWords();
   return true;
 }
 
@@ -230,6 +273,21 @@ function clearAll() {
   charCount = 0;
   empty = true;
   hint.classList.remove('hidden');
+  display.style.fontSize = MAX_PX + 'px';
+}
+
+function cyclePalette() {
+  curPalette = (curPalette + 1) % PALETTES.length;
+  let ci = 0;
+  for (const el of letters.querySelectorAll(':scope > .word > .letter')) {
+    el.style.color = currentColor(ci);
+    ci++;
+  }
+  const tag = document.getElementById('palette-tag');
+  tag.textContent = PALETTES[curPalette].name;
+  tag.classList.add('show');
+  clearTimeout(tag._t);
+  tag._t = setTimeout(() => tag.classList.remove('show'), 1200);
 }
 
 document.addEventListener('keydown', (e) => {
@@ -239,8 +297,8 @@ document.addEventListener('keydown', (e) => {
   if (k === 'Escape')    { clearAll(); e.preventDefault(); return; }
   if (k === 'Tab')       { cyclePalette(); e.preventDefault(); return; }
   if (k === 'Enter')     { e.preventDefault(); return; }
-  if (k === ' ')         { addChar(' '); e.preventDefault(); return; }
-  if (k.length === 1)    { addChar(k.toUpperCase()); e.preventDefault(); }
+  if (k === ' ')         { addSpace(); e.preventDefault(); return; }
+  if (k.length === 1)    { addLetter(k.toUpperCase()); e.preventDefault(); }
 });
 
 document.addEventListener('mousedown', () => document.body.focus());
